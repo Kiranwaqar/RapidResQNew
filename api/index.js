@@ -36,17 +36,31 @@ const initApp = async () => {
     }
 
     // API Routes
-    // Health check for GET /api
+    // Health checks
     created.get('/api', (req, res) => {
       res.json({ success: true, message: 'API is running' });
     });
+    created.get('/', (req, res) => {
+      res.json({ success: true, message: 'API is running' });
+    });
 
-    created.use("/api", authRoutes);
-    created.use("/api/emergency", emergencyRoutes);
-    created.use("/api", chatRoutes);
-    created.use("/api", communityRoutes);
-    created.use("/api/community", communityRoutes); // backward compatibility
-    created.use("/api", panicRoutes);
+    // Mount routers at both '/api' and '/' to handle Vercel routing (prefix may be stripped)
+    created.use('/api', authRoutes);
+    created.use('/', authRoutes);
+
+    created.use('/api/emergency', emergencyRoutes);
+    created.use('/emergency', emergencyRoutes);
+
+    created.use('/api', chatRoutes);
+    created.use('/', chatRoutes);
+
+    created.use('/api', communityRoutes);
+    created.use('/community', communityRoutes);
+    // backward compatibility
+    created.use('/api/community', communityRoutes);
+
+    created.use('/api', panicRoutes);
+    created.use('/', panicRoutes);
 
     // 404 Handler
     created.use((req, res) => {
