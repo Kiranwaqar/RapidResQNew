@@ -36,6 +36,11 @@ const initApp = async () => {
     }
 
     // API Routes
+    // Health check for GET /api
+    created.get('/api', (req, res) => {
+      res.json({ success: true, message: 'API is running' });
+    });
+
     created.use("/api", authRoutes);
     created.use("/api/emergency", emergencyRoutes);
     created.use("/api", chatRoutes);
