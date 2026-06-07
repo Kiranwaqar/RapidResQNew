@@ -104,6 +104,29 @@ button,
   background-color: #dc2626;
 }
 
+/* Floating panic button (global fallback) */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  box-shadow: 0 20px 40px rgba(220,38,38,0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.fab:hover {
+  transform: scale(1.03);
+}
+
 /* =========================
    INPUTS (GLOBAL)
 ========================= */
