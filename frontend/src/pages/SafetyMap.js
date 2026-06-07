@@ -257,7 +257,7 @@ const API_BASE_URL = API_URL;
   // Fetch nearby hospitals and emergency services for a lat/lon
   async function fetchNearbyServices(lat, lon, radius = 25000) {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/emergency/nearby?lat=${lat}&lon=${lon}&radius=${radius}`);
+      const resp = await fetch(`${API_BASE_URL}/emergency/nearby?lat=${lat}&lon=${lon}&radius=${radius}`);
       const data = await resp.json();
       if (!data.success) {
         throw new Error(data.message || 'Failed to fetch nearby services');
@@ -321,7 +321,7 @@ const API_BASE_URL = API_URL;
     setError(null);
 
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/community/posts`);
+      const resp = await fetch(`${API_BASE_URL}/community/posts`);
       const data = await resp.json();
       console.log('SafetyMap: fetched posts', data);
       if (!data.success) {

@@ -172,14 +172,15 @@ router.post('/panic', async (req, res) => {
       });
     }
 
-    // Create emergency post
+    // Create emergency post — use allowed enum type and include createdBy
     const emergencyPost = new CommunityPost({
-      type: 'Life in Danger',
+      type: 'Medical Emergency',
       title: 'EMERGENCY – LIFE IN DANGER',
       description: 'This is an emergency panic alert. The user is in immediate danger and unable to provide details. Please contact immediately and send help to the location.',
       location: location,
       phone: phoneDigits,
       author: fullName,
+      createdBy: user.username || fullName,
       urgent: true,
       responses: 0
     });

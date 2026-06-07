@@ -49,11 +49,14 @@ const initApp = async () => {
     created.use('/api/community', communityRoutes); // backward compatibility
     created.use('/api', panicRoutes);
 
-    // 404 Handler
+    // 404 Handler — provide clearer diagnostics for missing routes
     created.use((req, res) => {
+      const method = req.method;
+      const url = req.originalUrl || req.url;
+      console.warn(`404 ${method} ${url}`);
       res.status(404).json({
         success: false,
-        message: "Route not found",
+        message: `Route not found: ${method} ${url}`,
       });
     });
 
