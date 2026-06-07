@@ -36,31 +36,18 @@ const initApp = async () => {
     }
 
     // API Routes
-    // Health checks
+    // Health check for /api
     created.get('/api', (req, res) => {
       res.json({ success: true, message: 'API is running' });
     });
-    created.get('/', (req, res) => {
-      res.json({ success: true, message: 'API is running' });
-    });
 
-    // Mount routers at both '/api' and '/' to handle Vercel routing (prefix may be stripped)
+    // Mount routers only under '/api' to avoid interfering with static files
     created.use('/api', authRoutes);
-    created.use('/', authRoutes);
-
     created.use('/api/emergency', emergencyRoutes);
-    created.use('/emergency', emergencyRoutes);
-
     created.use('/api', chatRoutes);
-    created.use('/', chatRoutes);
-
     created.use('/api', communityRoutes);
-    created.use('/community', communityRoutes);
-    // backward compatibility
-    created.use('/api/community', communityRoutes);
-
+    created.use('/api/community', communityRoutes); // backward compatibility
     created.use('/api', panicRoutes);
-    created.use('/', panicRoutes);
 
     // 404 Handler
     created.use((req, res) => {
@@ -119,12 +106,31 @@ const runDiagnostics = async () => {
     result.modules.nodemailer = false;
   }
 
-  // Attempt dynamic import of groq-sdk (ESM)
+  // Try CommonJS require first (some installs provide CJS entrypoints)
   try {
-    const mod = await import('groq-sdk/index.mjs');
+    require('groq-sdk');
     result.modules.groq = true;
-  } catch (e) {
-    result.modules.groq = String(e && e.message ? e.message : e);
+  } catch (requireErr) {
+    // If require fails, attempt dynamic ESM imports using several candidate paths
+    try {
+      let mod = null;
+      const candidates = ['groq-sdk/index.mjs', 'groq-sdk', 'groq', '@groq/sdk', 'groq-sdk/dist/index.mjs', './node_modules/groq-sdk/index.mjs'];
+      for (const candidate of candidates) {
+        try {
+          mod = await import(candidate);
+          break;
+        } catch (err) {
+          // continue trying
+        }
+      }
+      if (mod) {
+        result.modules.groq = true;
+      } else {
+        result.modules.groq = 'groq-sdk not found via candidates';
+      }
+    } catch (e) {
+      result.modules.groq = String(e && e.message ? e.message : e);
+    }
   }
 
   return result;

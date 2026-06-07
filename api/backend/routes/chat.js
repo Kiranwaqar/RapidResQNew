@@ -9,25 +9,33 @@ let groq = null;
 const getGroq = async () => {
   if (groq) return groq;
   try {
-    // Try several possible import paths to be robust across installs
-    let mod;
-    const candidates = ['groq-sdk/index.mjs', 'groq-sdk', 'groq', '@groq/sdk'];
-    for (const candidate of candidates) {
-      try {
-        mod = await import(candidate);
-        break;
-      } catch (e) {
-        // continue
+    // Prefer CommonJS require for packages that expose CJS entrypoints
+    try {
+      const reqMod = require('groq-sdk');
+      const Groq = reqMod && (reqMod.default || reqMod);
+      groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      return groq;
+    } catch (requireErr) {
+      // Try several possible ESM import paths to be robust across installs
+      let mod = null;
+      const candidates = ['groq-sdk/index.mjs', 'groq-sdk', 'groq', '@groq/sdk', 'groq-sdk/dist/index.mjs'];
+      for (const candidate of candidates) {
+        try {
+          mod = await import(candidate);
+          break;
+        } catch (e) {
+          // continue
+        }
       }
-    }
 
-    if (!mod) {
-      throw new Error('groq-sdk not found');
-    }
+      if (!mod) {
+        throw new Error('groq-sdk not found');
+      }
 
-    const Groq = mod.default || mod;
-    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    return groq;
+      const Groq = mod.default || mod;
+      groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      return groq;
+    }
   } catch (e) {
     console.error('Failed to load groq-sdk:', e);
     throw e;
@@ -103,14 +111,58 @@ router.post('/chat', async (req, res) => {
     let botReply = null;
     try {
       const client = await getGroq();
-      const response = await client.chat.completions.create({
-        model: process.env.GROQ_MODEL || 'mixtral-8x7b-32768',
-        messages: memory
-      });
-
-      botReply = response.choices[0].message.content;
+      const modelName = process.env.GROQ_MODEL || 'mixtral-8x7b-32768';
+      // Use withResponse to get raw response for debugging when things fail
+      try {
+        const { data: response, response: raw } = await client.chat.completions.create({
+          model: modelName,
+          messages: memory
+        }).withResponse();
+        // Log status for debugging
+        console.log('Groq response status:', raw.status);
+        botReply = response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content;
+      } catch (innerErr) {
+        // If model was decommissioned, retry with a known-good fallback model
+        const msg = innerErr && innerErr.message ? innerErr.message : '';
+        const code = innerErr && innerErr.code ? innerErr.code : '';
+        if (code === 'model_decommissioned' || /decommissioned/.test(msg)) {
+          try {
+            const fallbackModel = 'openai/gpt-oss-20b';
+            console.log('Model decommissioned, retrying with fallback model:', fallbackModel);
+            const { data: response2, response: raw2 } = await client.chat.completions.create({
+              model: fallbackModel,
+              messages: memory
+            }).withResponse();
+            console.log('Groq fallback response status:', raw2.status);
+            botReply = response2.choices && response2.choices[0] && response2.choices[0].message && response2.choices[0].message.content;
+          } catch (retryErr) {
+            console.error('Groq fallback attempt failed:', JSON.stringify({ name: retryErr.name, message: retryErr.message, status: retryErr.status }));
+            // rethrow to be handled by outer catch
+            throw retryErr;
+          }
+        } else {
+          // Log compact JSON of error to avoid truncation in Vercel logs
+          try {
+            const errInfo = {
+              name: innerErr && innerErr.name,
+              message: innerErr && innerErr.message,
+              status: innerErr && innerErr.status,
+              headers: innerErr && innerErr.headers
+            };
+            console.error('Groq request failed (inner):', JSON.stringify(errInfo));
+          } catch (logErr) {
+            console.error('Groq request failed (inner) - unable to stringify error:', String(innerErr));
+          }
+          throw innerErr;
+        }
+      }
     } catch (e) {
-      console.error('Groq request failed, using fallback reply:', e && e.message ? e.message : e);
+      try {
+        const errInfo = { name: e && e.name, message: e && e.message, status: e && e.status };
+        console.error('Groq request failed, using fallback reply:', JSON.stringify(errInfo));
+      } catch (logErr) {
+        console.error('Groq request failed, using fallback reply:', String(e));
+      }
       // Fallback simple responder
       if (dangerWords.some(word => message.toLowerCase().includes(word))) {
         botReply = "If someone is in immediate danger, call local emergency services now. Provide your exact location and follow their instructions.";
@@ -148,6 +200,8 @@ router.post('/chat', async (req, res) => {
     });
   }
 });
+
+// Temporary debug route removed — no longer needed.
 
 // GET /api/chat/clear - Clear conversation history (optional)
 router.get('/chat/clear/:userId', (req, res) => {
