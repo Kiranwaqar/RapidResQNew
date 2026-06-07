@@ -1,14 +1,38 @@
 const express = require('express');
 const router = express.Router();
-const Groq = require('groq-sdk/index.mjs');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Initialize Groq client
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+// Lazily import and initialize Groq (ESM) to avoid require-time ESM errors on serverless
+let groq = null;
+const getGroq = async () => {
+  if (groq) return groq;
+  try {
+    // Try several possible import paths to be robust across installs
+    let mod;
+    const candidates = ['groq-sdk/index.mjs', 'groq-sdk', 'groq', '@groq/sdk'];
+    for (const candidate of candidates) {
+      try {
+        mod = await import(candidate);
+        break;
+      } catch (e) {
+        // continue
+      }
+    }
+
+    if (!mod) {
+      throw new Error('groq-sdk not found');
+    }
+
+    const Groq = mod.default || mod;
+    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    return groq;
+  } catch (e) {
+    console.error('Failed to load groq-sdk:', e);
+    throw e;
+  }
+};
 
 // Keep last 5 messages for context per conversation
 const conversations = new Map();
@@ -76,12 +100,24 @@ router.post('/chat', async (req, res) => {
     }
 
     // Get AI response from Groq
-    const response = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || 'mixtral-8x7b-32768',
-      messages: memory
-    });
+    let botReply = null;
+    try {
+      const client = await getGroq();
+      const response = await client.chat.completions.create({
+        model: process.env.GROQ_MODEL || 'mixtral-8x7b-32768',
+        messages: memory
+      });
 
-    const botReply = response.choices[0].message.content;
+      botReply = response.choices[0].message.content;
+    } catch (e) {
+      console.error('Groq request failed, using fallback reply:', e && e.message ? e.message : e);
+      // Fallback simple responder
+      if (dangerWords.some(word => message.toLowerCase().includes(word))) {
+        botReply = "If someone is in immediate danger, call local emergency services now. Provide your exact location and follow their instructions.";
+      } else {
+        botReply = "Hello — the AI assistant is temporarily unavailable. Please describe your emergency briefly and we will help as best as we can.";
+      }
+    }
 
     // Check for emergency keywords and prepend warning
     let finalReply = botReply;

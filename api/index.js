@@ -1,61 +1,133 @@
-// api/index.js
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const connectDB = require("./backend/config/database");
+// api/index.js - lazy initialize Express app to avoid require-time crashes in serverless
+let app = null;
+let initError = null;
 
-// Import routes
-const authRoutes = require("./backend/routes/authRoutes");
-const emergencyRoutes = require("./backend/routes/emergencyRoutes");
-const chatRoutes = require("./backend/routes/chat");
-const communityRoutes = require("./backend/routes/community");
-const panicRoutes = require("./backend/routes/panic");
+const initApp = async () => {
+  if (app || initError) return;
 
-dotenv.config();
+  try {
+    const express = require("express");
+    const cors = require("cors");
+    const dotenv = require("dotenv");
+    dotenv.config();
 
-const app = express();
+    const connectDB = require("./backend/config/database");
 
-// Connect to MongoDB Atlas
-connectDB();
+    // Import routes after dotenv so they can rely on env vars
+    const authRoutes = require("./backend/routes/authRoutes");
+    const emergencyRoutes = require("./backend/routes/emergencyRoutes");
+    const chatRoutes = require("./backend/routes/chat");
+    const communityRoutes = require("./backend/routes/community");
+    const panicRoutes = require("./backend/routes/panic");
 
-// Middleware
-app.use(cors()); // You can restrict origins if needed
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+    const created = express();
 
-// Debug: log incoming requests in dev
-if (process.env.NODE_ENV !== "production") {
-  app.use("/api", (req, res, next) => {
-    console.log(`[${req.method}] ${req.path}`);
-    next();
-  });
-}
+    // Middleware
+    created.use(cors());
+    created.use(express.json());
+    created.use(express.urlencoded({ extended: true }));
 
-// API Routes
-app.use("/api", authRoutes);
-app.use("/api/emergency", emergencyRoutes);
-app.use("/api", chatRoutes);
-app.use("/api", communityRoutes);
-app.use("/api/community", communityRoutes); // backward compatibility
-app.use("/api", panicRoutes);
+    // Debug: log incoming requests in dev
+    if (process.env.NODE_ENV !== "production") {
+      created.use("/api", (req, res, next) => {
+        console.log(`[${req.method}] ${req.path}`);
+        next();
+      });
+    }
 
-// 404 Handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found",
-  });
-});
+    // API Routes
+    created.use("/api", authRoutes);
+    created.use("/api/emergency", emergencyRoutes);
+    created.use("/api", chatRoutes);
+    created.use("/api", communityRoutes);
+    created.use("/api/community", communityRoutes); // backward compatibility
+    created.use("/api", panicRoutes);
 
-// Error Handler
-app.use((err, req, res, next) => {
-  console.error("Server Error:", err);
-  res.status(500).json({
-    success: false,
-    message: "Internal server error",
-    error: process.env.NODE_ENV === "development" ? err.message : "Something went wrong",
-  });
-});
+    // 404 Handler
+    created.use((req, res) => {
+      res.status(404).json({
+        success: false,
+        message: "Route not found",
+      });
+    });
 
-// Export Express app (Vercel's Node runtime will call this as a function)
-module.exports = app;
+    // Error Handler
+    created.use((err, req, res, next) => {
+      console.error("Server Error:", err);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? err.message : "Something went wrong",
+      });
+    });
+
+    // Connect to MongoDB Atlas (don't let connect failure throw unhandled)
+    try {
+      await connectDB();
+    } catch (e) {
+      console.error('connectDB() threw during init:', e && e.message ? e.message : e);
+    }
+
+    app = created;
+  } catch (err) {
+    initError = err;
+    console.error('App initialization failed:', err && err.stack ? err.stack : err);
+  }
+};
+
+const runDiagnostics = async () => {
+  const result = {
+    env: {
+      MONGO_URI: !!process.env.MONGO_URI,
+      EMAIL_USER: !!process.env.EMAIL_USER,
+      EMAIL_PASSWORD: !!process.env.EMAIL_PASSWORD,
+      GROQ_API_KEY: !!process.env.GROQ_API_KEY,
+      GROQ_MODEL: !!process.env.GROQ_MODEL
+    },
+    modules: {}
+  };
+
+  // Try requiring common modules
+  try {
+    result.modules.bcrypt = !!require.resolve('bcryptjs');
+  } catch (e) {
+    result.modules.bcrypt = false;
+  }
+
+  try {
+    result.modules.nodemailer = !!require.resolve('nodemailer');
+  } catch (e) {
+    result.modules.nodemailer = false;
+  }
+
+  // Attempt dynamic import of groq-sdk (ESM)
+  try {
+    const mod = await import('groq-sdk/index.mjs');
+    result.modules.groq = true;
+  } catch (e) {
+    result.modules.groq = String(e && e.message ? e.message : e);
+  }
+
+  return result;
+};
+
+module.exports = async (req, res) => {
+  // Debug endpoint: quick diagnostics without initializing full app
+  if (req.url && req.url.startsWith('/api/_debug')) {
+    try {
+      const diag = await runDiagnostics();
+      return res.json({ success: true, diagnostics: diag });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: String(e && e.message ? e.message : e) });
+    }
+  }
+
+  await initApp();
+  if (initError) {
+    console.error('Handling request but app failed to initialize:', initError && initError.stack ? initError.stack : initError);
+    res.status(500).json({ success: false, message: 'Server initialization error' });
+    return;
+  }
+
+  return app(req, res);
+};

@@ -10,9 +10,10 @@ const connectDB = async () => {
     const mongoURI = process.env.MONGO_URI;
 
     if (!mongoURI) {
-      console.error('MONGO_URI is not defined in .env file');
-      console.log('Please add MONGO_URI to your .env file');
-      process.exit(1);
+      console.error('MONGO_URI is not defined in environment variables');
+      console.log('Please add MONGO_URI to your environment (Vercel dashboard or .env)');
+      // Return early instead of exiting the process so serverless functions don't crash on startup
+      return;
     }
 
     // Reuse existing connection if already connected (important for serverless)
@@ -47,7 +48,8 @@ const connectDB = async () => {
 
   } catch (error) {
     console.error('MongoDB connection error:', error.message);
-    process.exit(1);
+    // Do not exit the process in a serverless environment; return so the caller can handle failure
+    return;
   }
 };
 

@@ -5,7 +5,8 @@
 const User = require('../models/User');
 const Login = require('../models/Login');
 const { validateLogin, validateSignup } = require('../utils/validation');
-const bcrypt = require('bcrypt');
+// Use bcryptjs (pure JS) to avoid native binary issues in serverless environments
+const bcrypt = require('bcryptjs');
 
 /**
  * Handle user login
