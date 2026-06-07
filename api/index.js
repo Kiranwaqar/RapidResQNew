@@ -2,7 +2,6 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const serverless = require("serverless-http");
 const connectDB = require("./backend/config/database");
 
 // Import routes
@@ -58,5 +57,5 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Export as serverless function
-module.exports = serverless(app);
+// Export Express app (Vercel's Node runtime will call this as a function)
+module.exports = app;

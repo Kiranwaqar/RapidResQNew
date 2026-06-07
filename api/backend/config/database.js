@@ -15,7 +15,16 @@ const connectDB = async () => {
       process.exit(1);
     }
 
-    const conn = await mongoose.connect(mongoURI);
+    // Reuse existing connection if already connected (important for serverless)
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      console.log('MongoDB already connected');
+      return;
+    }
+
+    const conn = await mongoose.connect(mongoURI, {
+      // Recommended options
+      // useNewUrlParser and useUnifiedTopology are default in mongoose 6+
+    });
 
     console.log(`MongoDB Atlas Connected: ${conn.connection.host}`);
     console.log(`Database: ${conn.connection.name}`);
