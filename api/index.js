@@ -165,6 +165,57 @@ module.exports = async (req, res) => {
     }
   }
 
+  // Debug DB: return counts from default mongoose connection and demo connection
+  if (req.url && req.url.startsWith('/api/_debug-db')) {
+    try {
+      // Ensure default DB connected
+      const connectDB = require('./backend/config/database');
+      await connectDB();
+
+      const mongoose = require('mongoose');
+      const User = require('./backend/models/User');
+      const Login = require('./backend/models/Login');
+      const CommunityPost = require('./backend/models/CommunityPost');
+
+      // Attempt to get demo models
+      const { getDemoModel, ensureDemoConnection } = require('./backend/config/dbConnections');
+      const demoConn = await ensureDemoConnection().catch(() => null);
+
+      const result = { default: {}, demo: {}, connections: {} };
+
+      try {
+        result.connections.default = mongoose.connection && mongoose.connection.name ? mongoose.connection.name : null;
+        result.default.User = await User.countDocuments().catch(() => null);
+        result.default.Login = await Login.countDocuments().catch(() => null);
+        result.default.CommunityPost = await CommunityPost.countDocuments().catch(() => null);
+      } catch (e) {
+        result.default.error = String(e && e.message ? e.message : e);
+      }
+
+      if (demoConn) {
+        try {
+          result.connections.demo = demoConn.db && demoConn.db.databaseName ? demoConn.db.databaseName : null;
+          const DemoUser = await getDemoModel('User', User).catch(() => null);
+          const DemoLogin = await getDemoModel('Login', Login).catch(() => null);
+          const DemoCommunity = await getDemoModel('CommunityPost', CommunityPost).catch(() => null);
+          result.demo.User = DemoUser ? await DemoUser.countDocuments().catch(() => null) : null;
+          result.demo.Login = DemoLogin ? await DemoLogin.countDocuments().catch(() => null) : null;
+          result.demo.CommunityPost = DemoCommunity ? await DemoCommunity.countDocuments().catch(() => null) : null;
+        } catch (e) {
+          result.demo.error = String(e && e.message ? e.message : e);
+        }
+      } else {
+        result.connections.demo = null;
+        result.demo = null;
+      }
+
+      return res.json({ success: true, result });
+    } catch (e) {
+      console.error('Error in _debug-db:', e && e.stack ? e.stack : e);
+      return res.status(500).json({ success: false, error: String(e && e.message ? e.message : e) });
+    }
+  }
+
   // Public lightweight volunteer count for diagnostics (no PII)
   if (req.url && req.url.startsWith('/api/_public/volunteer-count')) {
     try {
