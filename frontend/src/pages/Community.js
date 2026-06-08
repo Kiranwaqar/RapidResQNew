@@ -196,7 +196,7 @@ function CommunityBoard() {
       // Fallback: try opening without modification
       const encodedMessageFallback = encodeURIComponent("Hello, I saw your emergency post. How can I help?");
       const fallbackUrl = "https://wa.me/" + phone + "?text=" + encodedMessageFallback;
-      if (confirm("Phone number looks unusual. Try opening WhatsApp anyway?")) {
+      if (window.confirm("Phone number looks unusual. Try opening WhatsApp anyway?")) {
         window.open(fallbackUrl, "_blank", "noopener,noreferrer");
       }
       return;
