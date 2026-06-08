@@ -190,14 +190,40 @@ function CommunityBoard() {
       alert("Phone number not available");
       return;
     }
-
-    // Use server-side wa.me generator for safer normalization and to centralize logic.
+    // Prefer client-side normalization so local/dev works without requiring env/deploy.
     try {
+      let cleanNumber = String(phone).trim();
+      cleanNumber = cleanNumber.replace(/^\+|^00/, "");
+      cleanNumber = cleanNumber.replace(/\D/g, "");
+      if (cleanNumber.startsWith("0")) {
+        cleanNumber = cleanNumber.replace(/^0+/, "");
+        if (cleanNumber.length === 10) {
+          cleanNumber = `92${cleanNumber}`;
+        }
+      }
+
+      const isValidLocal = cleanNumber.length >= 8 && cleanNumber.length <= 15;
+
+      let message = "Hello, I saw your emergency post";
+      if (postTitle) message += " about " + postTitle;
+      if (postLocation) message += " in " + postLocation;
+      message += ". How can I help?";
+
+      const encodedMessage = encodeURIComponent(message);
+
+      if (isValidLocal) {
+        // Open directly to wa.me for faster client behavior.
+        const url = "https://wa.me/" + cleanNumber + "?text=" + encodedMessage;
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      // Fallback to server-side generator for tricky numbers.
       const base = API_URL.replace(/\/$/, "");
       const waUrl = `${base}/wa?phone=${encodeURIComponent(phone)}&title=${encodeURIComponent(postTitle||"")}&location=${encodeURIComponent(postLocation||"")}`;
       window.open(waUrl, "_blank", "noopener,noreferrer");
     } catch (e) {
-      console.error('Failed to open WhatsApp via server endpoint, falling back to client', e);
+      console.error('Failed to open WhatsApp (client fallback)', e);
       const fallback = 'https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent('Hello, I saw your emergency post. How can I help?');
       window.open(fallback, "_blank", "noopener,noreferrer");
     }
