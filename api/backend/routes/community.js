@@ -251,8 +251,10 @@ router.patch('/posts/:postId/status', async (req, res) => {
       });
     }
 
-    // Find the post
-    const post = await CommunityPost.findById(postId);
+    // Find the post using demo model when available
+    const demoCommunityForUpdate = await getDemoModel('CommunityPost', CommunityPost).catch(() => null);
+    const CommunityModelForUpdate = demoCommunityForUpdate || CommunityPost;
+    const post = await CommunityModelForUpdate.findById(postId);
 
     if (!post) {
       return res.status(404).json({
@@ -307,8 +309,10 @@ router.delete('/posts/:postId', async (req, res) => {
       });
     }
 
-    // Find the post
-    const post = await CommunityPost.findById(postId);
+    // Find the post using demo model when available
+    const demoCommunityForDelete = await getDemoModel('CommunityPost', CommunityPost).catch(() => null);
+    const CommunityModelForDelete = demoCommunityForDelete || CommunityPost;
+    const post = await CommunityModelForDelete.findById(postId);
 
     if (!post) {
       return res.status(404).json({
@@ -325,7 +329,7 @@ router.delete('/posts/:postId', async (req, res) => {
       });
     }
 
-    await CommunityPost.findByIdAndDelete(postId);
+    await CommunityModelForDelete.findByIdAndDelete(postId);
 
     res.json({
       success: true,
@@ -346,7 +350,9 @@ router.get('/posts/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
 
-    const post = await CommunityPost.findById(postId);
+    const demoCommunityForRespond = await getDemoModel('CommunityPost', CommunityPost).catch(() => null);
+    const CommunityModelForRespond = demoCommunityForRespond || CommunityPost;
+    const post = await CommunityModelForRespond.findById(postId);
 
     if (!post) {
       return res.status(404).json({

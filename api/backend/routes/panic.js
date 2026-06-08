@@ -223,7 +223,23 @@ router.post('/panic', async (req, res) => {
       console.warn('DEBUG: failed to stringify emergencyPost for logging', e && e.message);
     }
 
-    await emergencyPost.save();
+    // Attempt to save emergency posts to demo DB when available
+    const { getDemoModel } = require('../config/dbConnections');
+    const DemoCommunity = await getDemoModel('CommunityPost', CommunityPost).catch(() => null);
+    const CommunityCreateModel = DemoCommunity || CommunityPost;
+    // Recreate object on correct model to ensure schema binding
+    const toSave = new CommunityCreateModel({
+      type: emergencyPost.type,
+      title: emergencyPost.title,
+      description: emergencyPost.description,
+      location: emergencyPost.location,
+      phone: emergencyPost.phone,
+      author: emergencyPost.author,
+      createdBy: emergencyPost.createdBy,
+      urgent: emergencyPost.urgent,
+      responses: emergencyPost.responses
+    });
+    await toSave.save();
 
     // Send emails to all volunteers (don't wait for completion)
     // This runs in the background so the user gets immediate response
@@ -243,11 +259,11 @@ router.post('/panic', async (req, res) => {
       success: true,
       message: 'Emergency alert posted successfully. Volunteers are being notified via email.',
       post: {
-        id: emergencyPost._id,
-        title: emergencyPost.title,
-        type: emergencyPost.type,
-        urgent: emergencyPost.urgent,
-        location: emergencyPost.location
+        id: toSave._id,
+        title: toSave.title,
+        type: toSave.type,
+        urgent: toSave.urgent,
+        location: toSave.location
       }
     });
   } catch (error) {

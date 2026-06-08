@@ -28,8 +28,12 @@ const loginUser = async (req, res) => {
       });
     }
 
+    // Prefer demo user model for lookups when available so login works
+    const demoUserModel = await getDemoModel('User', User).catch(() => null);
+    const UserModelToQuery = demoUserModel || User;
+
     // Find user by username or email
-    const user = await User.findOne({
+    const user = await UserModelToQuery.findOne({
       $or: [
         { username: username.trim().toLowerCase() },
         { email: username.trim().toLowerCase() }
@@ -170,7 +174,9 @@ const signupUser = async (req, res) => {
       otherSkill: otherSkill ? otherSkill.trim() : null
     };
 
-    const newUser = new User(userData);
+    const demoUserCreate = await getDemoModel('User', User).catch(() => null);
+    const UserCreateModel = demoUserCreate || User;
+    const newUser = new UserCreateModel(userData);
     await newUser.save();
 
     // Print to console
@@ -270,7 +276,9 @@ const updateUserProfile = async (req, res) => {
     delete updateData._id;
 
     // Find and update user
-    const updatedUser = await User.findOneAndUpdate(
+    const demoUserUpdate = await getDemoModel('User', User).catch(() => null);
+    const UserUpdateModel = demoUserUpdate || User;
+    const updatedUser = await UserUpdateModel.findOneAndUpdate(
       { username: username.toLowerCase() },
       updateData,
       { 
