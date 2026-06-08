@@ -14,18 +14,21 @@ import { handlePanicButton } from "../utils/panicButton";
 import "./Community.css";
 import  API_URL  from '../utils/config'; // adjust the path if needed
 // Feature flag: set REACT_APP_WHATSAPP_ENABLED=true at build time to enable.
-// Also allow a runtime preview override via URL query `?whatsapp=1` so testing doesn't require changing Vercel env vars.
 const buildFlag = (process.env.REACT_APP_WHATSAPP_ENABLED || process.env.WHATSAPP_ENABLED) === 'true';
-let WHATSAPP_ENABLED = buildFlag;
-try {
-  if (typeof window !== 'undefined') {
-    const qp = new URLSearchParams(window.location.search || '');
-    if (qp.get('whatsapp') === '1') WHATSAPP_ENABLED = true;
-  }
-} catch (e) {
-  // ignore URL parsing errors in non-browser environments
-}
 function CommunityBoard() {
+  // Determine whether WhatsApp should be enabled for this render.
+  let runtimeFlag = false;
+  try {
+    if (typeof window !== 'undefined') {
+      const qp = new URLSearchParams(window.location.search || '');
+      if (qp.get('whatsapp') === '1') runtimeFlag = true;
+      if (window.localStorage && window.localStorage.getItem('WHATSAPP_ENABLED') === '1') runtimeFlag = true;
+    }
+  } catch (e) {
+    // ignore
+  }
+  const WHATSAPP_ENABLED = buildFlag || runtimeFlag;
+
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("All");
   const [showCreateModal, setShowCreateModal] = useState(false);
