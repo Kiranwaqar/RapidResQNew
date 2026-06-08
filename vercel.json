@@ -23,11 +23,11 @@
     { "handle": "filesystem" },
     {
       "src": "/(.*)",
-      "dest": "/frontend/build/$1"
+      "dest": "/$1"
     },
     {
       "src": "(.*)",
-      "dest": "/frontend/build/index.html"
+      "dest": "/index.html"
     }
   ]
 }
