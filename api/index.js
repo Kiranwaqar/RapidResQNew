@@ -36,10 +36,9 @@ const initApp = async () => {
       });
     }
 
-    // Determine base path: when running as a Vercel/Now serverless function
-    // the function is already mounted under `/api`, so avoid double-prefixing.
-    const isServerless = !!(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
-    const basePath = isServerless ? '' : '/api';
+    // Always mount API routes under `/api` to avoid the function
+    // responding at the site root if it's invoked directly.
+    const basePath = '/api';
 
     // Helper to join base path with route suffix without creating double slashes
     const withBase = (suffix) => (basePath ? `${basePath}${suffix}` : suffix || '/');
