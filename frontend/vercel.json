@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://api-iota-livid-74.vercel.app/api/$1"
-    }
-  ]
-}
