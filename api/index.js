@@ -19,6 +19,7 @@ const initApp = async () => {
     const chatRoutes = require("./backend/routes/chat");
     const communityRoutes = require("./backend/routes/community");
     const panicRoutes = require("./backend/routes/panic");
+    const adminRoutes = require("./backend/routes/admin");
 
     const created = express();
 
@@ -35,19 +36,28 @@ const initApp = async () => {
       });
     }
 
+    // Determine base path: when running as a Vercel/Now serverless function
+    // the function is already mounted under `/api`, so avoid double-prefixing.
+    const isServerless = !!(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
+    const basePath = isServerless ? '' : '/api';
+
+    // Helper to join base path with route suffix without creating double slashes
+    const withBase = (suffix) => (basePath ? `${basePath}${suffix}` : suffix || '/');
+
     // API Routes
-    // Health check for /api
-    created.get('/api', (req, res) => {
+    // Health check
+    created.get(withBase(''), (req, res) => {
       res.json({ success: true, message: 'API is running' });
     });
 
-    // Mount routers only under '/api' to avoid interfering with static files
-    created.use('/api', authRoutes);
-    created.use('/api/emergency', emergencyRoutes);
-    created.use('/api', chatRoutes);
-    created.use('/api', communityRoutes);
-    created.use('/api/community', communityRoutes); // backward compatibility
-    created.use('/api', panicRoutes);
+    // Mount routers at the appropriate base path
+    created.use(withBase(''), authRoutes);
+    created.use(withBase('/emergency'), emergencyRoutes);
+    created.use(withBase(''), chatRoutes);
+    created.use(withBase(''), communityRoutes);
+    created.use(withBase('/community'), communityRoutes); // backward compatibility
+    created.use(withBase(''), panicRoutes);
+    created.use(withBase('/admin'), adminRoutes);
 
     // 404 Handler — provide clearer diagnostics for missing routes
     created.use((req, res) => {
@@ -93,6 +103,12 @@ const runDiagnostics = async () => {
       GROQ_API_KEY: !!process.env.GROQ_API_KEY,
       GROQ_MODEL: !!process.env.GROQ_MODEL
     },
+    	// include admin and sendgrid visibility flags (do not expose values)
+    	envExtras: {
+    	  ADMIN_SECRET: !!process.env.ADMIN_SECRET,
+    	  SENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY,
+    	  EMAIL_FROM: !!process.env.EMAIL_FROM
+    	},
     modules: {}
   };
 
@@ -150,6 +166,22 @@ module.exports = async (req, res) => {
     }
   }
 
+  // Public lightweight volunteer count for diagnostics (no PII)
+  if (req.url && req.url.startsWith('/api/_public/volunteer-count')) {
+    try {
+      // Lazy init DB connection only
+      const connectDB = require('./backend/config/database');
+      await connectDB();
+      const mongoose = require('mongoose');
+      const User = require('./backend/models/User');
+      const count = await User.countDocuments({ isVolunteer: true });
+      return res.json({ success: true, volunteerCount: count });
+    } catch (err) {
+      console.error('Volunteer count error:', err && err.stack ? err.stack : err);
+      // Temporary: include stack for debugging in response
+      return res.status(500).json({ success: false, message: 'Failed to get volunteer count', error: String(err && err.stack ? err.stack : err) });
+    }
+  }
   await initApp();
   if (initError) {
     console.error('Handling request but app failed to initialize:', initError && initError.stack ? initError.stack : initError);

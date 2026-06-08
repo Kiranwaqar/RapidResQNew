@@ -179,24 +179,26 @@ function CommunityBoard() {
       return;
     }
 
-    let cleanNumber = phone.replace(/\D/g, "");
+    // Normalize phone number for wa.me: remove non-digits, handle leading plus and international formats
+    let cleanNumber = String(phone).trim();
+    // Remove leading + or 00 international prefix markers
+    cleanNumber = cleanNumber.replace(/^\+|^00/, "");
+    // Remove all non-digit characters
+    cleanNumber = cleanNumber.replace(/\D/g, "");
 
+    // If number still starts with 0, strip it (local format)
     if (cleanNumber.startsWith("0")) {
-      cleanNumber = cleanNumber.substring(1);
+      cleanNumber = cleanNumber.replace(/^0+/, "");
     }
 
-    if (cleanNumber.length === 10 && !cleanNumber.startsWith("92")) {
-      cleanNumber = "92" + cleanNumber;
-    } else if (
-      cleanNumber.length === 11 &&
-      cleanNumber.startsWith("3") &&
-      !cleanNumber.startsWith("92")
-    ) {
-      cleanNumber = "92" + cleanNumber;
-    }
-
-    if (cleanNumber.length < 10) {
-      alert("Invalid phone number");
+    // Basic sanity check: must be between 8 and 15 digits (international)
+    if (cleanNumber.length < 8 || cleanNumber.length > 15) {
+      // Fallback: try opening without modification
+      const encodedMessageFallback = encodeURIComponent("Hello, I saw your emergency post. How can I help?");
+      const fallbackUrl = "https://wa.me/" + phone + "?text=" + encodedMessageFallback;
+      if (confirm("Phone number looks unusual. Try opening WhatsApp anyway?")) {
+        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+      }
       return;
     }
 

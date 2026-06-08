@@ -10,13 +10,26 @@ const CommunityPost = require('../models/CommunityPost');
 
 // Configure email transporter (using Gmail as example)
 // You can use other services like SendGrid, Mailgun, etc.
+// Nodemailer transporter (used only if SENDGRID_API_KEY not provided)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER, // Your email address
-    pass: process.env.EMAIL_PASSWORD // Your email password or app password
+    user: process.env.EMAIL_USER || '', // Your email address
+    pass: process.env.EMAIL_PASSWORD || '' // Your email password or app password
   }
 });
+
+// Optional SendGrid support: prefer SendGrid when SENDGRID_API_KEY is configured
+let sendgrid = null;
+try {
+  if (process.env.SENDGRID_API_KEY) {
+    sendgrid = require('@sendgrid/mail');
+    sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
+  }
+} catch (err) {
+  console.warn('SendGrid not available:', err && err.message);
+  sendgrid = null;
+}
 
 /**
  * Send email to all volunteers
@@ -70,24 +83,35 @@ async function sendEmailToVolunteers(postData) {
       </div>
     `;
 
-    // Send email to each volunteer
-    const emailPromises = volunteers.map(volunteer => {
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: volunteer.email,
-        subject: emailSubject,
-        html: emailBody
-      };
-
-      return transporter.sendMail(mailOptions)
-        .then(() => {
-          console.log(`✅ Email sent to: ${volunteer.email}`);
+    // Send email to each volunteer. Prefer SendGrid when available.
+    const emailPromises = volunteers.map(async (volunteer) => {
+      try {
+        if (sendgrid) {
+          const msg = {
+            to: volunteer.email,
+            from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@rapidresq.app',
+            subject: emailSubject,
+            html: emailBody
+          };
+          await sendgrid.send(msg);
+          console.log(`✅ SendGrid email sent to: ${volunteer.email}`);
           return { success: true, email: volunteer.email };
-        })
-        .catch(error => {
-          console.error(`❌ Failed to send email to ${volunteer.email}:`, error.message);
-          return { success: false, email: volunteer.email, error: error.message };
-        });
+        }
+
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: volunteer.email,
+          subject: emailSubject,
+          html: emailBody
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`✅ Nodemailer email sent to: ${volunteer.email}`);
+        return { success: true, email: volunteer.email };
+      } catch (error) {
+        console.error(`❌ Failed to send email to ${volunteer.email}:`, error && error.message);
+        return { success: false, email: volunteer.email, error: error && error.message };
+      }
     });
 
     // Wait for all emails to be sent
@@ -184,6 +208,20 @@ router.post('/panic', async (req, res) => {
       urgent: true,
       responses: 0
     });
+
+    // Debug: log the object we are about to save to help diagnose validation issues
+    try {
+      console.log('DEBUG: emergencyPost to save:', JSON.stringify({
+        type: emergencyPost.type,
+        title: emergencyPost.title,
+        createdBy: emergencyPost.createdBy,
+        author: emergencyPost.author,
+        phone: emergencyPost.phone,
+        location: emergencyPost.location
+      }));
+    } catch (e) {
+      console.warn('DEBUG: failed to stringify emergencyPost for logging', e && e.message);
+    }
 
     await emergencyPost.save();
 
