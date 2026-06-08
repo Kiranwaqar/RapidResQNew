@@ -181,46 +181,16 @@ function CommunityBoard() {
       return;
     }
 
-    // Normalize phone number for wa.me: remove non-digits, handle leading plus and international formats
-    let cleanNumber = String(phone).trim();
-    // Remove leading + or 00 international prefix markers
-    cleanNumber = cleanNumber.replace(/^\+|^00/, "");
-    // Remove all non-digit characters
-    cleanNumber = cleanNumber.replace(/\D/g, "");
-
-    // If number still starts with 0, strip it (local format)
-    if (cleanNumber.startsWith("0")) {
-      cleanNumber = cleanNumber.replace(/^0+/, "");
-      // Heuristic: if a local number remains (10 digits, e.g., Pakistan mobile numbers),
-      // prepend the country code '92' so wa.me receives an international-format number.
-      if (cleanNumber.length === 10) {
-        cleanNumber = `92${cleanNumber}`;
-      }
+    // Use server-side wa.me generator for safer normalization and to centralize logic.
+    try {
+      const base = API_URL.replace(/\/$/, "");
+      const waUrl = `${base}/wa?phone=${encodeURIComponent(phone)}&title=${encodeURIComponent(postTitle||"")}&location=${encodeURIComponent(postLocation||"")}`;
+      window.open(waUrl, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error('Failed to open WhatsApp via server endpoint, falling back to client', e);
+      const fallback = 'https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent('Hello, I saw your emergency post. How can I help?');
+      window.open(fallback, "_blank", "noopener,noreferrer");
     }
-
-    // Basic sanity check: must be between 8 and 15 digits (international)
-    if (cleanNumber.length < 8 || cleanNumber.length > 15) {
-      // Fallback: try opening without modification
-      const encodedMessageFallback = encodeURIComponent("Hello, I saw your emergency post. How can I help?");
-      const fallbackUrl = "https://wa.me/" + phone + "?text=" + encodedMessageFallback;
-      if (window.confirm("Phone number looks unusual. Try opening WhatsApp anyway?")) {
-        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
-      }
-      return;
-    }
-
-    let message = "Hello, I saw your emergency post";
-    if (postTitle) {
-      message += " about " + postTitle;
-    }
-    if (postLocation) {
-      message += " in " + postLocation;
-    }
-    message += ". How can I help?";
-
-    const encodedMessage = encodeURIComponent(message);
-    const url = "https://wa.me/" + cleanNumber + "?text=" + encodedMessage;
-    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleStatusUpdate = async (postId, newStatus) => {

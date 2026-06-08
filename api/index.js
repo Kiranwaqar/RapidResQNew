@@ -181,6 +181,42 @@ module.exports = async (req, res) => {
       return res.status(500).json({ success: false, message: 'Failed to get volunteer count', error: String(err && err.stack ? err.stack : err) });
     }
   }
+
+  // wa.me redirect helper - validates and normalizes phone numbers then redirects
+  if (req.url && req.url.startsWith('/api/wa')) {
+    try {
+      const { URL } = require('url');
+      const parsed = new URL(req.url, 'http://localhost');
+      const phone = parsed.searchParams.get('phone') || '';
+      const title = parsed.searchParams.get('title') || '';
+      const location = parsed.searchParams.get('location') || '';
+
+      let s = String(phone || '').trim();
+      s = s.replace(/^\+|^00/, '');
+      s = s.replace(/\D/g, '');
+      if (s.startsWith('0')) {
+        s = s.replace(/^0+/, '');
+        if (s.length === 10) s = `92${s}`;
+      }
+
+      if (s.length < 8 || s.length > 15) {
+        const fallbackMsg = encodeURIComponent('Hello, I saw your emergency post. How can I help?');
+        const fallback = 'https://wa.me/' + encodeURIComponent(phone) + '?text=' + fallbackMsg;
+        return res.redirect(fallback);
+      }
+
+      let message = 'Hello, I saw your emergency post';
+      if (title) message += ' about ' + title;
+      if (location) message += ' in ' + location;
+      message += '. How can I help?';
+
+      const wa = 'https://wa.me/' + s + '?text=' + encodeURIComponent(message);
+      return res.redirect(wa);
+    } catch (e) {
+      console.error('Error in /api/wa handler:', e && e.stack ? e.stack : e);
+      return res.status(500).json({ success: false, message: 'Failed to build WhatsApp link' });
+    }
+  }
   await initApp();
   if (initError) {
     console.error('Handling request but app failed to initialize:', initError && initError.stack ? initError.stack : initError);
