@@ -4,6 +4,7 @@
  */
 const User = require('../models/User');
 const Login = require('../models/Login');
+const { getDemoModel } = require('../config/dbConnections');
 const { validateLogin, validateSignup } = require('../utils/validation');
 // Use bcryptjs (pure JS) to avoid native binary issues in serverless environments
 const bcrypt = require('bcryptjs');
@@ -53,8 +54,10 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Save login attempt to database
-    const loginRecord = new Login({
+    // Save login attempt to the demo DB if available, otherwise default
+    const demoLoginModel = await getDemoModel('Login', Login).catch(() => null);
+    const LoginModelToUse = demoLoginModel || Login;
+    const loginRecord = new LoginModelToUse({
       username: user.username,
       loginTime: new Date(),
       ipAddress: req.ip || req.connection.remoteAddress,

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const CommunityPost = require('../models/CommunityPost');
+const { getDemoModel } = require('../config/dbConnections');
 
 // Utility function to validate phone number
 const validatePhoneNumber = (phone) => {
@@ -105,7 +106,12 @@ router.get('/posts', async (req, res) => {
       sortOptions = { createdAt: -1 };
     }
 
-    const posts = await CommunityPost.find(filter)
+    // Try to read from demo DB (if configured) so preview/production can be
+    // separated. Fall back to the default model if demo is unavailable.
+    const demoCommunity = await getDemoModel('CommunityPost', CommunityPost).catch(() => null);
+    const CommunityModelToUse = demoCommunity || CommunityPost;
+
+    const posts = await CommunityModelToUse.find(filter)
       .sort(sortOptions)
       .limit(200);
 
@@ -179,7 +185,11 @@ router.post('/posts', async (req, res) => {
     }
 
     // Create new post
-    const newPost = new CommunityPost({
+    // Create using demo DB model when available
+    const demoCommunityCreate = await getDemoModel('CommunityPost', CommunityPost).catch(() => null);
+    const CommunityCreateModel = demoCommunityCreate || CommunityPost;
+
+    const newPost = new CommunityCreateModel({
       type,
       title: title.trim(),
       description: description.trim(),

@@ -45,6 +45,7 @@
     ]
   },
   "devDependencies": {
-    "@craco/craco": "^7.1.0"
+    "@craco/craco": "^7.1.0",
+    "source-list-map": "^2.0.1"
   }
 }

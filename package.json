@@ -4,6 +4,6 @@
   "private": true,
   "scripts": {
     "build": "cd frontend && npm ci && npm run build",
-    "vercel-build": "npm run build"
+    "vercel-build": "npm run build && mkdir -p .vercel/output/public && cp -r frontend/build/* .vercel/output/public/"
   }
 }
