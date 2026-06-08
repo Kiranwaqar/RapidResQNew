@@ -156,7 +156,8 @@ const runDiagnostics = async () => {
 
 module.exports = async (req, res) => {
   // Debug endpoint: quick diagnostics without initializing full app
-  if (req.url && req.url.startsWith('/api/_debug')) {
+  // Avoid matching '/api/_debug-db' (handled separately)
+  if (req.url && req.url.startsWith('/api/_debug') && !req.url.startsWith('/api/_debug-db')) {
     try {
       const diag = await runDiagnostics();
       return res.json({ success: true, diagnostics: diag });
