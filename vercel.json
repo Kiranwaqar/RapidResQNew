@@ -11,5 +11,15 @@
       "config": { "distDir": "build" }
     }
   ],
-  "routes": []
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "status": 302,
+      "headers": { "Location": "https://rapid-res-qn-frontend.vercel.app/$1" }
+    }
+  ]
 }
