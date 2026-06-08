@@ -13,6 +13,8 @@ import {
 import { handlePanicButton } from "../utils/panicButton";
 import "./Community.css";
 import  API_URL  from '../utils/config'; // adjust the path if needed
+// Feature flag: set REACT_APP_WHATSAPP_ENABLED=true in your environment to enable
+const WHATSAPP_ENABLED = (process.env.REACT_APP_WHATSAPP_ENABLED || process.env.WHATSAPP_ENABLED) === 'true';
 function CommunityBoard() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("All");
@@ -733,15 +735,25 @@ function CommunityBoard() {
                           React.createElement(Trash2, { size: 16 })
                         )
                       ),
-                    React.createElement(
-                      "button",
-                      {
-                        className: "respond-btn",
-                        onClick: () =>
-                          openWhatsApp(post.phone, post.title, post.location)
-                      },
-                      "Respond on WhatsApp"
-                    )
+                    WHATSAPP_ENABLED
+                      ? React.createElement(
+                          "button",
+                          {
+                            className: "respond-btn",
+                            onClick: () =>
+                              openWhatsApp(post.phone, post.title, post.location)
+                          },
+                          "Respond on WhatsApp"
+                        )
+                      : React.createElement(
+                          "button",
+                          {
+                            className: "respond-btn disabled",
+                            disabled: true,
+                            title: "WhatsApp disabled in this environment"
+                          },
+                          "Respond on WhatsApp"
+                        )
                   )
                 )
               )
