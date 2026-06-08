@@ -212,16 +212,24 @@ function CommunityBoard() {
       const encodedMessage = encodeURIComponent(message);
 
       if (isValidLocal) {
-        // Open directly to wa.me for faster client behavior.
+        // Open directly to wa.me for faster client behavior. If popup is blocked,
+        // fallback to navigating in the same tab.
         const url = "https://wa.me/" + cleanNumber + "?text=" + encodedMessage;
-        window.open(url, "_blank", "noopener,noreferrer");
+        console.log('openWhatsApp: opening', url);
+        const w = window.open(url, "_blank", "noopener,noreferrer");
+        if (!w) {
+          console.log('openWhatsApp: popup blocked, navigating instead');
+          window.location.href = url;
+        }
         return;
       }
 
       // Fallback to server-side generator for tricky numbers.
       const base = API_URL.replace(/\/$/, "");
       const waUrl = `${base}/wa?phone=${encodeURIComponent(phone)}&title=${encodeURIComponent(postTitle||"")}&location=${encodeURIComponent(postLocation||"")}`;
-      window.open(waUrl, "_blank", "noopener,noreferrer");
+      console.log('openWhatsApp: fallback to server wa endpoint', waUrl);
+      const w2 = window.open(waUrl, "_blank", "noopener,noreferrer");
+      if (!w2) window.location.href = waUrl;
     } catch (e) {
       console.error('Failed to open WhatsApp (client fallback)', e);
       const fallback = 'https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent('Hello, I saw your emergency post. How can I help?');
