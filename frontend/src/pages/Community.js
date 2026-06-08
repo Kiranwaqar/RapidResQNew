@@ -189,6 +189,11 @@ function CommunityBoard() {
     // If number still starts with 0, strip it (local format)
     if (cleanNumber.startsWith("0")) {
       cleanNumber = cleanNumber.replace(/^0+/, "");
+      // Heuristic: if a local number remains (10 digits, e.g., Pakistan mobile numbers),
+      // prepend the country code '92' so wa.me receives an international-format number.
+      if (cleanNumber.length === 10) {
+        cleanNumber = `92${cleanNumber}`;
+      }
     }
 
     // Basic sanity check: must be between 8 and 15 digits (international)
