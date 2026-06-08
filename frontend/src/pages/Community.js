@@ -13,8 +13,10 @@ import {
 import { handlePanicButton } from "../utils/panicButton";
 import "./Community.css";
 import  API_URL  from '../utils/config'; // adjust the path if needed
-// Feature flag: set REACT_APP_WHATSAPP_ENABLED=true at build time to enable.
-const buildFlag = (process.env.REACT_APP_WHATSAPP_ENABLED || process.env.WHATSAPP_ENABLED) === 'true';
+// Feature flag: By default enable WhatsApp button unless explicitly disabled.
+// To disable, set REACT_APP_WHATSAPP_ENABLED=false in the environment.
+const _envFlag = process.env.REACT_APP_WHATSAPP_ENABLED || process.env.WHATSAPP_ENABLED;
+const buildFlag = _envFlag === 'false' ? false : true;
 function CommunityBoard() {
   // Determine whether WhatsApp should be enabled for this render.
   let runtimeFlag = false;
