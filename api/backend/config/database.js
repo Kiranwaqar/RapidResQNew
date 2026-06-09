@@ -9,11 +9,34 @@ const connectDB = async () => {
   try {
     const mongoURI = process.env.MONGO_URI;
 
+    // Fail-fast assertions for misconfigured environments
+    const allowedHostsEnv = process.env.MONGO_ALLOWED_HOSTS || process.env.MONGO_EXPECTED_HOST || '';
+    const allowedHosts = allowedHostsEnv
+      ? allowedHostsEnv.split(',').map(s => s.trim()).filter(Boolean)
+      : null;
+
     if (!mongoURI) {
-      console.error('MONGO_URI is not defined in environment variables');
-      console.log('Please add MONGO_URI to your environment (Vercel dashboard or .env)');
-      // Return early instead of exiting the process so serverless functions don't crash on startup
-      return;
+      const msg = 'MONGO_URI is not defined in environment variables. Please add MONGO_URI to your environment (Vercel dashboard or .env)';
+      // In development, throw so the error is visible early. In production, log and return to avoid crashing serverless functions.
+      if (process.env.NODE_ENV && process.env.NODE_ENV !== 'production') {
+        throw new Error(msg);
+      } else {
+        console.error(msg);
+        return;
+      }
+    }
+
+    // If the caller defined an expected host(s), validate that the provided MONGO_URI references at least one allowed host
+    if (allowedHosts && allowedHosts.length > 0) {
+      const matches = allowedHosts.some(h => mongoURI.includes(h));
+      if (!matches) {
+        const msg = `MONGO_URI host mismatch. Expected one of [${allowedHosts.join(', ')}] to appear in MONGO_URI`;
+        if (process.env.NODE_ENV && process.env.NODE_ENV !== 'production') {
+          throw new Error(msg);
+        } else {
+          console.error(msg);
+        }
+      }
     }
 
     // Reuse existing connection if already connected (important for serverless)
