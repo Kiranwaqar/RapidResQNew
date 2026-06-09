@@ -152,8 +152,11 @@ router.post('/panic', async (req, res) => {
       });
     }
 
-    // Find user by username
-    const user = await User.findOne({ 
+    // Find user by username using demo User model when available
+    const { getDemoModel } = require('../config/dbConnections');
+    const demoUserModel = await getDemoModel('User', User).catch(() => null);
+    const UserModelToQuery = demoUserModel || User;
+    const user = await UserModelToQuery.findOne({ 
       username: username.trim().toLowerCase() 
     });
 
@@ -224,7 +227,7 @@ router.post('/panic', async (req, res) => {
     }
 
     // Attempt to save emergency posts to demo DB when available
-    const { getDemoModel } = require('../config/dbConnections');
+    // Reuse `getDemoModel` declared above to avoid duplicate identifier
     const DemoCommunity = await getDemoModel('CommunityPost', CommunityPost).catch(() => null);
     const CommunityCreateModel = DemoCommunity || CommunityPost;
     // Recreate object on correct model to ensure schema binding
