@@ -217,6 +217,36 @@ module.exports = async (req, res) => {
     }
   }
 
+  // Lightweight health endpoint for automated monitoring.
+  if (req.url && req.url.startsWith('/api/_health')) {
+    try {
+      const connectDB = require('./backend/config/database');
+      await connectDB().catch(() => null);
+
+      const mongoose = require('mongoose');
+      const { ensureDemoConnection } = require('./backend/config/dbConnections');
+      const demoConn = await ensureDemoConnection().catch(() => null);
+
+      const result = {
+        default: {
+          connected: !!(mongoose.connection && mongoose.connection.readyState === 1),
+          host: mongoose.connection && mongoose.connection.host ? String(mongoose.connection.host) : null,
+          db: mongoose.connection && mongoose.connection.name ? String(mongoose.connection.name) : null
+        },
+        demo: demoConn ? {
+          connected: true,
+          host: demoConn.host || (demoConn.client && demoConn.client.s && demoConn.client.s.url) || null,
+          db: demoConn.db && demoConn.db.databaseName ? String(demoConn.db.databaseName) : null
+        } : { connected: false }
+      };
+
+      return res.json({ success: true, result });
+    } catch (e) {
+      console.error('Error in _health:', e && e.stack ? e.stack : e);
+      return res.status(500).json({ success: false, error: String(e && e.message ? e.message : e) });
+    }
+  }
+
   // Public lightweight volunteer count for diagnostics (no PII)
   if (req.url && req.url.startsWith('/api/_public/volunteer-count')) {
     try {

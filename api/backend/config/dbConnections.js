@@ -5,18 +5,24 @@ let demoConn = null;
 const ensureDemoConnection = async () => {
   if (demoConn) return demoConn;
   try {
-    const mongoURI = process.env.MONGO_URI;
-    if (!mongoURI) {
-      console.warn('dbConnections: MONGO_URI not set; demo connection will not be created');
+    // Only create a dedicated demo connection when an explicit demo URI is provided.
+    // This prevents accidental writes to a different DB when no demo environment is configured.
+    const demoUri = process.env.MONGO_URI_DEMO;
+    if (!demoUri) {
+      // No explicit demo URI - do not create a demo connection. Callers should fall back to default models.
+      // This ensures all writes go to the primary MONGO_URI by default.
       return null;
     }
 
+    // Determine dbName: explicit demo DB env overrides fallback
+    const dbName = process.env.RAPIDRESQ_DEMO_DB || 'rapidresq_demo';
+
     // Create a dedicated connection for the demo DB name. This does not affect
     // the default mongoose connection used elsewhere.
-    demoConn = await mongoose.createConnection(mongoURI, {
-      // Explicitly set the dbName so it uses rapidresq_demo
-      dbName: process.env.RAPIDRESQ_DEMO_DB || 'rapidresq_demo',
-      // keep default options minimal
+    demoConn = await mongoose.createConnection(demoUri, {
+      dbName,
+      // Recommended options (compatible with mongoose 6+)
+      // leave other connection options to defaults or to uri query params
     });
 
     // Wait for connection to be ready
@@ -25,7 +31,7 @@ const ensureDemoConnection = async () => {
       demoConn.once('error', reject);
     });
 
-    console.log('Demo DB connection established to', demoConn.host);
+    console.log('Demo DB connection established to', demoConn.host, 'db=', demoConn.db && demoConn.db.databaseName ? demoConn.db.databaseName : dbName);
     return demoConn;
   } catch (e) {
     console.error('Failed to create demo DB connection:', e && e.message ? e.message : e);
