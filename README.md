@@ -2,6 +2,9 @@
 
 RapidResq is a MERN-stack emergency response platform designed to help people during critical situations through real-time alerts, AI assistance, community coordination, and safety mapping.
 
+# Live Demo:
+https://rapid-res-qn-ew.vercel.app/
+
 It provides a panic button system, AI emergency chatbot, community help board, first aid guidance, and nearby emergency service mapping.
 
 ## Key Features
